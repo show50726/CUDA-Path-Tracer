@@ -80,9 +80,9 @@ __host__ __device__ void scatterRay(
     }
     else {
         // Diffuse reflection
-        glm::vec3 diffuseDir = calculateRandomDirectionInHemisphere(normal, rng);
+        newDirection = calculateRandomDirectionInHemisphere(normal, rng);
     }
-    pathSegment.ray.origin = intersect + 0.001f * newDirection;
     pathSegment.ray.direction = glm::normalize(newDirection);
+    pathSegment.ray.origin = intersect + 0.001f * pathSegment.ray.direction;
     pathSegment.remainingBounces--;
 }

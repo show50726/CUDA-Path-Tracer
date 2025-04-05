@@ -278,6 +278,7 @@ __global__ void shadeFakeMaterial(
         else {
             pathSegments[idx].color = glm::vec3(0.0f);
         }
+        pathSegments[idx].remainingBounces = 0;
     }
 } 
 
@@ -326,6 +327,23 @@ __global__ void shadeBSDFMaterial(
         else {
             pathSegments[idx].color = glm::vec3(0.0f);
             pathSegments[idx].remainingBounces = 0;
+        }
+    }
+}
+
+__global__ void accumulateColor(int num_paths, glm::vec3* image, PathSegment* iterationPaths)
+{
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+    if (index < num_paths)
+    {
+        PathSegment iterationPath = iterationPaths[index];
+        if (iterationPath.remainingBounces <= 0) {
+
+            glm::vec3 color = iterationPath.color;
+            // gamma correction
+            // color = glm::pow(color, glm::vec3(1.0f / 2.2f));
+            image[iterationPath.pixelIndex] += color;
         }
     }
 }
@@ -441,9 +459,11 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
         cudaDeviceSynchronize();
 
+        accumulateColor <<<numblocksPathSegmentTracing, blockSize1d >>> (num_paths, dev_image, dev_paths);
+        cudaDeviceSynchronize();
+
         thrust::device_ptr<PathSegment> d_paths_ptr(dev_paths);
         thrust::device_ptr<ShadeableIntersection> d_intersections_ptr(dev_intersections);
-        thrust::device_ptr<Material> d_materials_ptr(dev_materials);
 
         auto first = thrust::make_zip_iterator(thrust::make_tuple(
             d_paths_ptr,
