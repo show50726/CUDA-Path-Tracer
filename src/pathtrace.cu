@@ -314,7 +314,6 @@ __global__ void shadeBSDFMaterial(
             else {
                 float lightTerm = glm::dot(intersection.surfaceNormal, glm::vec3(0.0f, 1.0f, 0.0f));
                 pathSegments[idx].color *= material.color;
-                //pathSegments[idx].color *= u01(rng); // apply some noise because why not
 
                 glm::vec3 intersectPosition = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t;
                 scatterRay(pathSegments[idx], intersectPosition, intersection.surfaceNormal, material, rng);
@@ -448,16 +447,14 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
         auto first = thrust::make_zip_iterator(thrust::make_tuple(
             d_paths_ptr,
-            d_intersections_ptr,
-            d_materials_ptr
+            d_intersections_ptr
         ));
         auto last = thrust::make_zip_iterator(thrust::make_tuple(
             d_paths_ptr + num_paths,
-            d_intersections_ptr + num_paths,
-            d_materials_ptr + num_paths
+            d_intersections_ptr + num_paths
         ));
         auto is_finished = [] __host__ __device__(
-            const thrust::tuple<PathSegment, ShadeableIntersection, Material>& t) {
+            const thrust::tuple<PathSegment, ShadeableIntersection>& t) {
             return thrust::get<0>(t).remainingBounces == 0;
         };
         auto new_end = thrust::remove_if(first, last, is_finished);
