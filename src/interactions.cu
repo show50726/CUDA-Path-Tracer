@@ -47,10 +47,42 @@ __host__ __device__ void scatterRay(
     const Material &m,
     thrust::default_random_engine &rng)
 {
-    // TODO: implement this.
-    // A basic implementation of pure-diffuse shading will just call the
-    // calculateRandomDirectionInHemisphere defined above.
-    pathSegment.ray.origin = intersect;
-    pathSegment.ray.direction = calculateRandomDirectionInHemisphere(normal, rng);
+    thrust::uniform_real_distribution<float> u01(0, 1);
+
+    glm::vec3 incident = glm::normalize(pathSegment.ray.direction);
+    glm::vec3 newDirection;
+
+    if (m.hasRefractive > 0.0f) {
+        float eta = m.indexOfRefraction;
+        bool outside = glm::dot(incident, normal) < 0;
+        glm::vec3 n = outside ? normal : -normal;
+        float etaRatio = outside ? (1.0f / eta) : eta;
+
+        float cosTheta = glm::dot(-incident, n);
+        float sin2Theta = 1.0f - cosTheta * cosTheta;
+        bool cannotRefract = etaRatio * etaRatio * sin2Theta > 1.0f;
+
+        // Schlick's approximation
+        float r0 = (1.0f - eta) / (1.0f + eta);
+        r0 = r0 * r0;
+        float reflectProb = r0 + (1.0f - r0) * powf(1.0f - cosTheta, 5.0f);
+
+        if (cannotRefract || u01(rng) < reflectProb) {
+            newDirection = glm::reflect(incident, n);
+        }
+        else {
+            newDirection = glm::refract(incident, n, etaRatio);
+        }
+    }
+    else if (m.hasReflective > 0.0f) {
+        // Perfect normal reflection
+        newDirection = glm::reflect(incident, normal);
+    }
+    else {
+        // Diffuse reflection
+        glm::vec3 diffuseDir = calculateRandomDirectionInHemisphere(normal, rng);
+    }
+    pathSegment.ray.origin = intersect + 0.001f * newDirection;
+    pathSegment.ray.direction = glm::normalize(newDirection);
     pathSegment.remainingBounces--;
 }
