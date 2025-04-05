@@ -7,6 +7,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/random.h>
 #include <thrust/remove.h>
+#include <thrust/sort.h>
 
 #include "sceneStructs.h"
 #include "scene.h"
@@ -17,6 +18,7 @@
 #include "interactions.h"
 
 #define ERRORCHECK 1
+#define SORT_BY_MATERIAL 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -49,6 +51,15 @@ thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int de
     int h = utilhash((1 << 31) | (depth << 22) | iter) ^ utilhash(index);
     return thrust::default_random_engine(h);
 }
+
+struct sortByMaterial
+{
+    __host__ __device__
+        bool operator()(const ShadeableIntersection& a, const ShadeableIntersection& b) const
+    {
+        return a.materialId < b.materialId; // Sort in ascending order by materialId
+    }
+};
 
 //Kernel that writes the image to the OpenGL PBO directly.
 __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution, int iter, glm::vec3* image)
@@ -449,6 +460,20 @@ void pathtrace(uchar4* pbo, int frame, int iter)
         // TODO: compare between directly shading the path segments and shading
         // path segments that have been reshuffled to be contiguous in memory.
 
+        thrust::device_ptr<PathSegment> d_paths_ptr(dev_paths);
+        thrust::device_ptr<ShadeableIntersection> d_intersections_ptr(dev_intersections);
+
+#if SORT_BY_MATERIAL
+        thrust::sort(
+            thrust::make_zip_iterator(thrust::make_tuple(d_intersections_ptr, d_paths_ptr)),
+            thrust::make_zip_iterator(thrust::make_tuple(d_intersections_ptr + num_paths, d_paths_ptr + num_paths)),
+            [] __host__ __device__(const thrust::tuple<ShadeableIntersection, PathSegment>&a,
+                const thrust::tuple<ShadeableIntersection, PathSegment>&b) {
+            return thrust::get<0>(a).materialId < thrust::get<0>(b).materialId;
+        }
+        );
+#endif
+
         shadeBSDFMaterial<<<numblocksPathSegmentTracing, blockSize1d>>>(
             iter,
             num_paths,
@@ -460,10 +485,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
         cudaDeviceSynchronize();
 
         accumulateColor <<<numblocksPathSegmentTracing, blockSize1d >>> (num_paths, dev_image, dev_paths);
-        cudaDeviceSynchronize();
-
-        thrust::device_ptr<PathSegment> d_paths_ptr(dev_paths);
-        thrust::device_ptr<ShadeableIntersection> d_intersections_ptr(dev_intersections);
+        cudaDeviceSynchronize();        
 
         auto first = thrust::make_zip_iterator(thrust::make_tuple(
             d_paths_ptr,
