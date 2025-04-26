@@ -52,6 +52,13 @@ void Scene::loadFromJSON(const std::string& jsonName)
             const auto& col = p["RGB"];
             newMaterial.color = glm::vec3(col[0], col[1], col[2]);
         }
+        else if (p["TYPE"] == "Refractive")
+        {
+            newMaterial.hasRefractive = 1.0;
+            newMaterial.indexOfRefraction = p["IOF"];
+            const auto& col = p["RGB"];
+            newMaterial.color = glm::vec3(col[0], col[1], col[2]);
+        }
         MatNameToID[name] = materials.size();
         materials.emplace_back(newMaterial);
     }

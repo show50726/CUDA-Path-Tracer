@@ -45,6 +45,7 @@ __host__ __device__ void scatterRay(
     glm::vec3 intersect,
     glm::vec3 normal,
     const Material &m,
+    glm::vec3& attenuation,
     thrust::default_random_engine &rng)
 {
     thrust::uniform_real_distribution<float> u01(0, 1);
@@ -63,7 +64,7 @@ __host__ __device__ void scatterRay(
         bool cannotRefract = etaRatio * etaRatio * sin2Theta > 1.0f;
 
         // Schlick's approximation
-        float r0 = (1.0f - eta) / (1.0f + eta);
+        float r0 = (1.0f - etaRatio) / (1.0f + etaRatio);
         r0 = r0 * r0;
         float reflectProb = r0 + (1.0f - r0) * powf(1.0f - cosTheta, 5.0f);
 
@@ -73,14 +74,17 @@ __host__ __device__ void scatterRay(
         else {
             newDirection = glm::refract(incident, n, etaRatio);
         }
+        attenuation = glm::vec3(1.0f);
     }
     else if (m.hasReflective > 0.0f) {
         // Perfect normal reflection
         newDirection = glm::reflect(incident, normal);
+        attenuation = m.color;
     }
     else {
         // Diffuse reflection
         newDirection = calculateRandomDirectionInHemisphere(normal, rng);
+        attenuation = m.color;
     }
     pathSegment.ray.direction = glm::normalize(newDirection);
     pathSegment.ray.origin = intersect + 0.001f * pathSegment.ray.direction;

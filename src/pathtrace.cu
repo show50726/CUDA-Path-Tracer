@@ -283,11 +283,11 @@ __global__ void shadeBSDFMaterial(
             // like what you would expect from shading in a rasterizer like OpenGL.
             // TODO: replace this! you should be able to start with basically a one-liner
             else {
-                float lightTerm = glm::dot(intersection.surfaceNormal, glm::vec3(0.0f, 1.0f, 0.0f));
-                pathSegments[idx].color *= material.color;
-
+                glm::vec3 attenuation;
                 glm::vec3 intersectPosition = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t;
-                scatterRay(pathSegments[idx], intersectPosition, intersection.surfaceNormal, material, rng);
+                scatterRay(pathSegments[idx], intersectPosition, intersection.surfaceNormal, material, attenuation, rng);
+            
+                pathSegments[idx].color *= attenuation;
             }
             // If there was no intersection, color the ray black.
             // Lots of renderers use 4 channel color, RGBA, where A = alpha, often
