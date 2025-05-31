@@ -87,6 +87,6 @@ __host__ __device__ void scatterRay(
         attenuation = m.color;
     }
     pathSegment.ray.direction = glm::normalize(newDirection);
-    pathSegment.ray.origin = intersect + 0.001f * pathSegment.ray.direction;
+    pathSegment.ray.origin = intersect + 0.01f * pathSegment.ray.direction;
     pathSegment.remainingBounces--;
 }
