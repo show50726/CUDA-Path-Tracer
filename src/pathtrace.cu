@@ -20,6 +20,8 @@
 #define ERRORCHECK 1
 #define SORT_BY_MATERIAL 0
 #define STOCHASTIC_SAMPLING 1
+#define RUSSIAN_ROULETTE 1
+#define RUSSIAN_ROULETTE_START_ITER 5
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -165,10 +167,10 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 #if STOCHASTIC_SAMPLING
         // Implement antialiasing by jittering the ray
         thrust::default_random_engine rng = makeSeededRandomEngine(iter, index, 0);
-        thrust::uniform_real_distribution<float> u01(0, 1);
+        thrust::uniform_real_distribution<float> u05(-0.5f, 0.5f);
 
-        float jitterX = u01(rng);
-        float jitterY = u01(rng);
+        float jitterX = u05(rng);
+        float jitterY = u05(rng);
         offsetX += jitterX;
         offsetY += jitterY;
 #endif // STOCHASTIC_SAMPLING
@@ -266,13 +268,12 @@ __global__ void shadeBSDFMaterial(
         if (intersection.t > 0.0f) // if the intersection exists...
         {
             // Set up the RNG
-            // LOOK: this is how you use thrust's RNG! Please look at
-            // makeSeededRandomEngine as well.
             thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
             thrust::uniform_real_distribution<float> u01(0, 1);
 
             Material material = materials[intersection.materialId];
             glm::vec3 materialColor = material.color;
+            glm::vec3 surfaceNormal = intersection.surfaceNormal;
 
             // If the material indicates that the object was a light, "light" the ray
             if (material.emittance > 0.0f) {
@@ -284,10 +285,24 @@ __global__ void shadeBSDFMaterial(
             // TODO: replace this! you should be able to start with basically a one-liner
             else {
                 glm::vec3 attenuation;
-                glm::vec3 intersectPosition = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t;
-                scatterRay(pathSegments[idx], intersectPosition, intersection.surfaceNormal, material, attenuation, rng);
+                scatterRay(pathSegments[idx], getPointOnRay(pathSegments[idx].ray, intersection.t), surfaceNormal, material, attenuation, rng);
             
                 pathSegments[idx].color *= attenuation;
+
+#if RUSSIAN_ROULETTE
+                if (iter <= RUSSIAN_ROULETTE_START_ITER)
+                    return;
+
+                glm::vec3 color = pathSegments[idx].color;
+                float p = glm::min(glm::max(color.x, glm::max(color.y, color.z)), 1.0f);
+                if (u01(rng) > p) {
+                    pathSegments[idx].remainingBounces = 0;
+                }
+                else {
+                    pathSegments[idx].color /= p;
+                }
+#endif
+
             }
             // If there was no intersection, color the ray black.
             // Lots of renderers use 4 channel color, RGBA, where A = alpha, often
