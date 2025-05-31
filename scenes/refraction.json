@@ -32,7 +32,12 @@
         {
             "TYPE":"Refractive",
             "RGB":[1.00, 1.00, 1.00],
-            "IOF":1.52
+            "IOF":1.55
+        },
+        "mirror":
+        {
+            "TYPE":"Mirror",
+            "RGB":[1.00, 1.00, 1.00]
         }
     },
     "Camera":
@@ -100,9 +105,9 @@
         {
             "TYPE":"sphere",
             "MATERIAL":"refraction",
-            "TRANS":[-1.0,2.0,1.0],
+            "TRANS":[1.0,2.0,1.0],
             "ROTAT":[0.0,0.0,0.0],
-            "SCALE":[5.0,5.0,5.0]
+            "SCALE":[3.5,3.5,3.5]
         }
     ]
 }
