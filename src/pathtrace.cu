@@ -23,7 +23,7 @@
 #define ERRORCHECK 1
 #define SORT_BY_MATERIAL 0
 #define STOCHASTIC_SAMPLING 1
-#define RUSSIAN_ROULETTE 0
+#define RUSSIAN_ROULETTE 1
 #define RUSSIAN_ROULETTE_START_ITER 5
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -309,13 +309,15 @@ __global__ void shadeBSDFMaterial(
                 if (iter <= RUSSIAN_ROULETTE_START_ITER)
                     return;
 
-                glm::vec3 radiance = segment.radiance;
-                float p = glm::min(glm::max(radiance.x, glm::max(radiance.y, radiance.z)), 1.0f);
+                glm::vec3 throughput = segment.throughput;
+                // Randomly terminate a path with a probability inversely equal to the throughput
+                float p = glm::min(glm::max(throughput.x, glm::max(throughput.y, throughput.z)), 1.0f);
                 if (u01(rng) > p) {
                     segment.remainingBounces = 0;
                 }
                 else {
-                    segment.radiance /= p;
+                    // Add the energy we 'lose' by randomly terminating paths
+                    segment.throughput /= p;
                 }
 #endif
 
