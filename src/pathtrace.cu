@@ -23,7 +23,7 @@
 #define ERRORCHECK 1
 #define SORT_BY_MATERIAL 0
 #define STOCHASTIC_SAMPLING 1
-#define RUSSIAN_ROULETTE 1
+#define RUSSIAN_ROULETTE 0
 #define RUSSIAN_ROULETTE_START_ITER 5
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -298,8 +298,10 @@ __global__ void shadeBSDFMaterial(
                 else {
                     float absCos = (material.type == Specular) ? 1.f : math::absDot(wi, intersection.surfaceNormal);
                     segment.throughput *= f * (absCos / pdf);
-                    segment.ray.direction = wi;
+                 
                     segment.ray.origin = getPointOnRay(segment.ray, intersection.t);
+                    segment.ray.direction = wi;
+
                     segment.remainingBounces--;
                 }
 

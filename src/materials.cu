@@ -55,7 +55,7 @@ __device__ glm::vec3 Material::lambertianSamplef(const glm::vec3& nor,
 __device__ glm::vec3 Material::specularSamplef(const glm::vec3& nor, 
 	glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf)
 {
-	*pdf = 1.f;
 	wi = glm::reflect(wo, nor);
+	*pdf = 1.f;
 	return glm::vec3(1.f);
 }
