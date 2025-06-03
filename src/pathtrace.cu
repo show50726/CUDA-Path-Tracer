@@ -9,6 +9,7 @@
 #include <thrust/remove.h>
 #include <thrust/sort.h>
 
+#include "device_launch_parameters.h"
 #include "sceneStructs.h"
 #include "scene.h"
 #include "glm/glm.hpp"
@@ -16,6 +17,8 @@
 #include "utilities.h"
 #include "intersections.h"
 #include "interactions.h"
+#include "materials.h"
+#include "math.h"
 
 #define ERRORCHECK 1
 #define SORT_BY_MATERIAL 0
@@ -159,7 +162,8 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
         PathSegment& segment = pathSegments[index];
 
         segment.ray.origin = cam.position;
-        segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
+        segment.radiance = glm::vec3(0.0f);
+        segment.throughput = glm::vec3(1.0f);
 
         float offsetX = (float)x;
         float offsetY = (float)y;
@@ -265,6 +269,7 @@ __global__ void shadeBSDFMaterial(
     if (idx < num_paths)
     {
         ShadeableIntersection intersection = shadeableIntersections[idx];
+        PathSegment& segment = pathSegments[idx];
         if (intersection.t > 0.0f) // if the intersection exists...
         {
             // Set up the RNG
@@ -272,34 +277,43 @@ __global__ void shadeBSDFMaterial(
             thrust::uniform_real_distribution<float> u01(0, 1);
 
             Material material = materials[intersection.materialId];
-            glm::vec3 materialColor = material.color;
+            material.createMaterialInst(material);
+
             glm::vec3 surfaceNormal = intersection.surfaceNormal;
 
             // If the material indicates that the object was a light, "light" the ray
             if (material.emittance > 0.0f) {
-                pathSegments[idx].color *= (materialColor * material.emittance);
-                pathSegments[idx].remainingBounces = 0;
+                segment.radiance += segment.throughput * material.emittance * material.albedo;
+                segment.remainingBounces = 0;
             }
-            // Otherwise, do some pseudo-lighting computation. This is actually more
-            // like what you would expect from shading in a rasterizer like OpenGL.
-            // TODO: replace this! you should be able to start with basically a one-liner
             else {
-                glm::vec3 attenuation;
-                scatterRay(pathSegments[idx], getPointOnRay(pathSegments[idx].ray, intersection.t), surfaceNormal, material, attenuation, rng);
-            
-                pathSegments[idx].color *= attenuation;
+                glm::vec3 rn = glm::vec3(u01(rng), u01(rng), u01(rng));
+                float pdf = 1.0f;
+                glm::vec3 wi = glm::vec3(0.0f);
+                glm::vec3 f = material.samplef(intersection.surfaceNormal, segment.ray.direction, wi, rn, &pdf);
+
+                if (pdf < EPSILON) {
+                    segment.remainingBounces = 0;
+                }
+                else {
+                    float absCos = (material.type == Specular) ? 1.f : math::absDot(wi, intersection.surfaceNormal);
+                    segment.throughput *= f * (absCos / pdf);
+                    segment.ray.direction = wi;
+                    segment.ray.origin = getPointOnRay(segment.ray, intersection.t);
+                    segment.remainingBounces--;
+                }
 
 #if RUSSIAN_ROULETTE
                 if (iter <= RUSSIAN_ROULETTE_START_ITER)
                     return;
 
-                glm::vec3 color = pathSegments[idx].color;
-                float p = glm::min(glm::max(color.x, glm::max(color.y, color.z)), 1.0f);
+                glm::vec3 radiance = segment.radiance;
+                float p = glm::min(glm::max(radiance.x, glm::max(radiance.y, radiance.z)), 1.0f);
                 if (u01(rng) > p) {
-                    pathSegments[idx].remainingBounces = 0;
+                    segment.remainingBounces = 0;
                 }
                 else {
-                    pathSegments[idx].color /= p;
+                    segment.radiance /= p;
                 }
 #endif
 
@@ -310,8 +324,8 @@ __global__ void shadeBSDFMaterial(
             // This can be useful for post-processing and image compositing.
         }
         else {
-            pathSegments[idx].color = glm::vec3(0.0f);
-            pathSegments[idx].remainingBounces = 0;
+            segment.radiance = glm::vec3(0.0f);
+            segment.remainingBounces = 0;
         }
     }
 }
@@ -325,7 +339,7 @@ __global__ void accumulateColor(int num_paths, glm::vec3* image, PathSegment* it
         PathSegment iterationPath = iterationPaths[index];
         if (iterationPath.remainingBounces <= 0) {
 
-            glm::vec3 color = iterationPath.color;
+            glm::vec3 color = iterationPath.radiance;
             // gamma correction
             // color = glm::pow(color, glm::vec3(1.0f / 2.2f));
             image[iterationPath.pixelIndex] += color;
@@ -341,7 +355,7 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
     if (index < nPaths)
     {
         PathSegment iterationPath = iterationPaths[index];
-        image[iterationPath.pixelIndex] += iterationPath.color;
+        image[iterationPath.pixelIndex] += iterationPath.radiance;
     }
 }
 

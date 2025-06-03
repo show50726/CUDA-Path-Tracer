@@ -31,20 +31,6 @@ struct Geom
     glm::mat4 invTranspose;
 };
 
-struct Material
-{
-    glm::vec3 color;
-    struct
-    {
-        float exponent;
-        glm::vec3 color;
-    } specular;
-    float hasReflective;
-    float hasRefractive;
-    float indexOfRefraction;
-    float emittance;
-};
-
 struct Camera
 {
     glm::ivec2 resolution;
@@ -69,7 +55,8 @@ struct RenderState
 struct PathSegment
 {
     Ray ray;
-    glm::vec3 color;
+    glm::vec3 throughput;
+    glm::vec3 radiance;
     int pixelIndex;
     int remainingBounces;
 };

@@ -4,9 +4,12 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+
 #include "glm/glm.hpp"
+
 #include "utilities.h"
 #include "sceneStructs.h"
+#include "materials.h"
 
 using namespace std;
 

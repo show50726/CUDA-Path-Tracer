@@ -39,31 +39,33 @@ void Scene::loadFromJSON(const std::string& jsonName)
         if (p["TYPE"] == "Diffuse")
         {
             const auto& col = p["RGB"];
-            newMaterial.color = glm::vec3(col[0], col[1], col[2]);
+            newMaterial.albedo = glm::vec3(col[0], col[1], col[2]);
+            newMaterial.type = Lambertian;
         }
         else if (p["TYPE"] == "Emitting")
         {
             const auto& col = p["RGB"];
-            newMaterial.color = glm::vec3(col[0], col[1], col[2]);
+            newMaterial.albedo = glm::vec3(col[0], col[1], col[2]);
             newMaterial.emittance = p["EMITTANCE"];
         }
         else if (p["TYPE"] == "Specular")
         {
             const auto& col = p["RGB"];
-            newMaterial.color = glm::vec3(col[0], col[1], col[2]);
+            newMaterial.albedo = glm::vec3(col[0], col[1], col[2]);
+            newMaterial.type = Specular;
         }
-        else if (p["TYPE"] == "Refractive")
+        /*else if (p["TYPE"] == "Refractive")
         {
             newMaterial.hasRefractive = 1.0;
             newMaterial.indexOfRefraction = p["IOF"];
             const auto& col = p["RGB"];
             newMaterial.color = glm::vec3(col[0], col[1], col[2]);
-        }
-        else if (p["TYPE"] == "Mirror") {
+        }*/
+        /*else if (p["TYPE"] == "Mirror") {
             newMaterial.hasReflective = 1.0;
             const auto& col = p["RGB"];
             newMaterial.color = glm::vec3(col[0], col[1], col[2]);
-        }
+        }*/
         MatNameToID[name] = materials.size();
         materials.emplace_back(newMaterial);
     }
