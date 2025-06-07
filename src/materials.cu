@@ -34,6 +34,9 @@ __device__ glm::vec3 Material::samplef(const glm::vec3& nor,
 	case Specular:
 		return specularSamplef(nor, wo, wi, rng, pdf);
 		break;
+	case FresnelSpecular:
+		return fresnelSamplef(nor, wo, wi, rng, pdf);
+		break;
 	}
 }
 
@@ -55,6 +58,46 @@ __device__ glm::vec3 Material::lambertianSamplef(const glm::vec3& nor,
 __device__ glm::vec3 Material::specularSamplef(const glm::vec3& nor, 
 	glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf)
 {
+	wi = glm::reflect(wo, nor);
+	*pdf = 1.f;
+	return glm::vec3(1.f);
+}
+
+__device__ glm::vec3 Material::fresnelSamplef(const glm::vec3& nor,
+	glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf)
+{
+	constexpr float ior_air = 1.0f;
+	float cosTheta = math::cosTheta(wo);
+
+	float F = math::frDielectric(cosTheta, ior_air, ior);
+	if (rng[0] < F) {
+		// Compute specular reflection for _FresnelSpecular_
+
+		// Compute perfect specular reflection direction
+		wi = glm::vec3(-wo.x, -wo.y, wo.z);
+		*pdf = F;
+		return F * reflectance / math::absCosTheta(wi);
+	}
+	else {
+		// Compute specular transmission for _FresnelSpecular_
+
+		// Figure out which $\eta$ is incident and which is transmitted
+		bool entering = cosTheta > 0;
+		float etaI = entering ? ior_air : ior;
+		float etaT = entering ? ior : ior_air;
+
+		// Compute ray direction for specular transmission
+		wi = glm::refract(wi, math::faceforward(glm::vec3(0, 0, 1), wo), etaI / etaT);
+		if (glm::all(glm::equal(wi, glm::vec3(0)))) {
+			return glm::vec3(0.0f);
+		}
+
+		glm::vec3 ft = transmittance * (1 - F);
+
+		*pdf = 1 - F;
+		return ft / math::absCosTheta(wi);
+	}
+
 	wi = glm::reflect(wo, nor);
 	*pdf = 1.f;
 	return glm::vec3(1.f);
