@@ -16,24 +16,24 @@ __device__ static glm::mat3 getTBN(const glm::vec3& N)
 	return glm::mat3(T, B, N);
 }
 
-__device__ glm::vec3 Material::samplef(const glm::vec3& nor, 
+__device__ glm::vec3 Material::samplef(const glm::vec3& nor, bool outside,
 	glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf)
 {
 	switch (type)
 	{
 	case Lambertian:
-		return lambertianSamplef(nor, wo, wi, rng, pdf);
+		return lambertianSamplef(nor, outside, wo, wi, rng, pdf);
 		break;
 	case Specular:
-		return specularSamplef(nor, wo, wi, rng, pdf);
+		return specularSamplef(nor, outside, wo, wi, rng, pdf);
 		break;
 	case FresnelSpecular:
-		return fresnelSamplef(nor, wo, wi, rng, pdf);
+		return fresnelSamplef(nor, outside, wo, wi, rng, pdf);
 		break;
 	}
 }
 
-__device__ glm::vec3 Material::lambertianSamplef(const glm::vec3& nor, 
+__device__ glm::vec3 Material::lambertianSamplef(const glm::vec3& nor, bool outside,
 	glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf) {
 
 	wi = math::sampleHemisphereCosine(glm::vec2(rng.x, rng.y));
@@ -48,7 +48,7 @@ __device__ glm::vec3 Material::lambertianSamplef(const glm::vec3& nor,
 	return albedo * INV_PI;
 }
 
-__device__ glm::vec3 Material::specularSamplef(const glm::vec3& nor, 
+__device__ glm::vec3 Material::specularSamplef(const glm::vec3& nor, bool outside,
 	glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf)
 {
 	wi = glm::reflect(wo, nor);
@@ -56,7 +56,7 @@ __device__ glm::vec3 Material::specularSamplef(const glm::vec3& nor,
 	return glm::vec3(1.f);
 }
 
-__device__ glm::vec3 Material::fresnelSamplef(const glm::vec3& nor,
+__device__ glm::vec3 Material::fresnelSamplef(const glm::vec3& nor, bool outside,
 	glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf)
 {
 	constexpr float ior_air = 1.0f;
@@ -64,11 +64,10 @@ __device__ glm::vec3 Material::fresnelSamplef(const glm::vec3& nor,
 	float cosTheta = glm::dot(-wo, nor);
 
 	// Figure out which $\eta$ is incident and which is transmitted
-	bool entering = cosTheta < 0;
-	float etaI = entering ? ior_air : ior;
-	float etaT = entering ? ior : ior_air;
+	float etaI = outside ? ior_air : ior;
+	float etaT = outside ? ior : ior_air;
 
-	glm::vec3 normal = entering ? nor : -nor;
+	glm::vec3 normal = outside ? nor : -nor;
 
 	float F = math::frDielectric(cosTheta, etaI, etaT);
 	if (rng[0] < F) {
@@ -77,7 +76,7 @@ __device__ glm::vec3 Material::fresnelSamplef(const glm::vec3& nor,
 		// Compute perfect specular reflection direction
 		wi = glm::reflect(wo, normal);
 		*pdf = F;
-		return albedo;
+		return F * albedo;
 	}
 
 	// Compute specular transmission for _FresnelSpecular_
@@ -85,11 +84,10 @@ __device__ glm::vec3 Material::fresnelSamplef(const glm::vec3& nor,
 	// Compute ray direction for specular transmission
 	float eta = etaI / etaT;
 	wi = glm::refract(wo, normal, eta);
-	if (glm::all(glm::equal(wi, glm::vec3(0)))) {
-		return glm::vec3(0.0f);
-	}
+	assert(glm::length(wi) != 0.0f);
 	wi = glm::normalize(wi);
+	*pdf = 1.0f - F;
 
-	*pdf = 1 - F;
-	return albedo * eta * eta;
+	float transmittance = (1.0f - F) * eta * eta;
+	return albedo * transmittance;
 }

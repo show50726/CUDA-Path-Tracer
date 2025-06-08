@@ -23,7 +23,7 @@
 #define ERRORCHECK 1
 #define SORT_BY_MATERIAL 0
 #define STOCHASTIC_SAMPLING 1
-#define RUSSIAN_ROULETTE 1
+#define RUSSIAN_ROULETTE 0
 #define RUSSIAN_ROULETTE_START_ITER 5
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -216,6 +216,7 @@ __global__ void computeIntersections(
 
         glm::vec3 tmp_intersect;
         glm::vec3 tmp_normal;
+        bool tmp_outside;
 
         // naive parse through global geoms
 
@@ -225,11 +226,11 @@ __global__ void computeIntersections(
 
             if (geom.type == CUBE)
             {
-                t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+                t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, tmp_outside);
             }
             else if (geom.type == SPHERE)
             {
-                t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+                t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, tmp_outside);
             }
             // TODO: add more intersection tests here... triangle? metaball? CSG?
 
@@ -241,6 +242,7 @@ __global__ void computeIntersections(
                 hit_geom_index = i;
                 intersect_point = tmp_intersect;
                 normal = tmp_normal;
+                outside = tmp_outside;
             }
         }
 
@@ -254,6 +256,7 @@ __global__ void computeIntersections(
             intersections[path_index].t = t_min;
             intersections[path_index].materialId = geoms[hit_geom_index].materialid;
             intersections[path_index].surfaceNormal = normal;
+            intersections[path_index].outside = outside;
         }
     }
 }
@@ -288,17 +291,18 @@ __global__ void shadeBSDFMaterial(
                 glm::vec3 rn = glm::vec3(u01(rng), u01(rng), u01(rng));
                 float pdf = 1.0f;
                 glm::vec3 wi = glm::vec3(0.0f);
-                glm::vec3 f = material.samplef(intersection.surfaceNormal, segment.ray.direction, wi, rn, &pdf);
+                glm::vec3 f = material.samplef(intersection.surfaceNormal, intersection.outside, segment.ray.direction, wi, rn, &pdf);
 
                 if (pdf < EPSILON) {
                     segment.remainingBounces = 0;
                 }
                 else {
-                    float absCos = (material.type == Specular) ? 1.f : math::absDot(wi, intersection.surfaceNormal);
+                    float absCos = (material.type == Specular || material.type == FresnelSpecular) ? 1.f : math::absDot(wi, intersection.surfaceNormal);
                     segment.throughput *= f * (absCos / pdf);
                  
                     segment.ray.origin = getPointOnRay(segment.ray, intersection.t);
                     segment.ray.direction = wi;
+                    segment.ray.origin += wi * EPSILON;
 
                     segment.remainingBounces--;
                 }

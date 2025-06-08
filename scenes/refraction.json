@@ -37,7 +37,7 @@
         {
             "TYPE":"FresnelSpecular",
             "RGB":[1.00, 1.00, 1.00],
-            "IOF":0.7
+            "IOF":1.55
         }
     },
     "Camera":
