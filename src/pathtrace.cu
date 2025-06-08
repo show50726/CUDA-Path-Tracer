@@ -277,8 +277,6 @@ __global__ void shadeBSDFMaterial(
             thrust::uniform_real_distribution<float> u01(0, 1);
 
             Material material = materials[intersection.materialId];
-            material.createMaterialInst(material);
-
             glm::vec3 surfaceNormal = intersection.surfaceNormal;
 
             // If the material indicates that the object was a light, "light" the ray

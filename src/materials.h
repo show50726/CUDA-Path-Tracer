@@ -13,8 +13,6 @@ enum MaterialType
 
 struct Material
 {
-    __device__ void createMaterialInst(const Material& mat);
-
     __device__ glm::vec3 samplef(const glm::vec3& nor, glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf);
 
     __device__ glm::vec3 lambertianSamplef(const glm::vec3& nor, glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf);
@@ -29,6 +27,4 @@ struct Material
     float roughness = 1.f;
     float ior = 0.f;
     float emittance = 0.f;
-    glm::vec3 reflectance = glm::vec3(1.0f);
-    glm::vec3 transmittance = glm::vec3(0.0f);
 };

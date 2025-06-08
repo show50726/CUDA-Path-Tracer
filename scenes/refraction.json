@@ -28,16 +28,16 @@
             "RGB":[0.98, 0.98, 0.98],
             "ROUGHNESS":0.0
         },
-		"refraction":
-        {
-            "TYPE":"Refractive",
-            "RGB":[1.00, 1.00, 1.00],
-            "IOF":1.55
-        },
         "mirror":
         {
             "TYPE":"Mirror",
             "RGB":[1.00, 1.00, 1.00]
+        },
+        "fresnel_specular":
+        {
+            "TYPE":"FresnelSpecular",
+            "RGB":[1.00, 1.00, 1.00],
+            "IOF":0.7
         }
     },
     "Camera":
@@ -104,7 +104,7 @@
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"refraction",
+            "MATERIAL":"fresnel_specular",
             "TRANS":[1.0,2.0,1.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.5,3.5,3.5]

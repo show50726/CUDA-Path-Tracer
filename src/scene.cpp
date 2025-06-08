@@ -54,18 +54,14 @@ void Scene::loadFromJSON(const std::string& jsonName)
             newMaterial.albedo = glm::vec3(col[0], col[1], col[2]);
             newMaterial.type = Specular;
         }
-        /*else if (p["TYPE"] == "Refractive")
+        else if (p["TYPE"] == "FresnelSpecular")
         {
-            newMaterial.hasRefractive = 1.0;
-            newMaterial.indexOfRefraction = p["IOF"];
+            newMaterial.ior = p["IOF"];
             const auto& col = p["RGB"];
-            newMaterial.color = glm::vec3(col[0], col[1], col[2]);
-        }*/
-        /*else if (p["TYPE"] == "Mirror") {
-            newMaterial.hasReflective = 1.0;
-            const auto& col = p["RGB"];
-            newMaterial.color = glm::vec3(col[0], col[1], col[2]);
-        }*/
+            newMaterial.albedo = glm::vec3(col[0], col[1], col[2]);
+            newMaterial.type = FresnelSpecular;
+        }
+
         MatNameToID[name] = materials.size();
         materials.emplace_back(newMaterial);
     }

@@ -16,13 +16,6 @@ __device__ static glm::mat3 getTBN(const glm::vec3& N)
 	return glm::mat3(T, B, N);
 }
 
-__device__ void Material::createMaterialInst(const Material& mat)
-{
-	albedo = mat.albedo;
-	roughness = mat.roughness;
-	metallic = mat.metallic;
-}
-
 __device__ glm::vec3 Material::samplef(const glm::vec3& nor, 
 	glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf)
 {
@@ -67,38 +60,36 @@ __device__ glm::vec3 Material::fresnelSamplef(const glm::vec3& nor,
 	glm::vec3& wo, glm::vec3& wi, glm::vec3 rng, float* pdf)
 {
 	constexpr float ior_air = 1.0f;
-	float cosTheta = math::cosTheta(wo);
 
-	float F = math::frDielectric(cosTheta, ior_air, ior);
+	float cosTheta = glm::dot(-wo, nor);
+
+	// Figure out which $\eta$ is incident and which is transmitted
+	bool entering = cosTheta < 0;
+	float etaI = entering ? ior_air : ior;
+	float etaT = entering ? ior : ior_air;
+
+	glm::vec3 normal = entering ? nor : -nor;
+
+	float F = math::frDielectric(cosTheta, etaI, etaT);
 	if (rng[0] < F) {
 		// Compute specular reflection for _FresnelSpecular_
 
 		// Compute perfect specular reflection direction
-		wi = glm::vec3(-wo.x, -wo.y, wo.z);
+		wi = glm::reflect(wo, normal);
 		*pdf = F;
-		return F * reflectance / math::absCosTheta(wi);
-	}
-	else {
-		// Compute specular transmission for _FresnelSpecular_
-
-		// Figure out which $\eta$ is incident and which is transmitted
-		bool entering = cosTheta > 0;
-		float etaI = entering ? ior_air : ior;
-		float etaT = entering ? ior : ior_air;
-
-		// Compute ray direction for specular transmission
-		wi = glm::refract(wi, math::faceforward(glm::vec3(0, 0, 1), wo), etaI / etaT);
-		if (glm::all(glm::equal(wi, glm::vec3(0)))) {
-			return glm::vec3(0.0f);
-		}
-
-		glm::vec3 ft = transmittance * (1 - F);
-
-		*pdf = 1 - F;
-		return ft / math::absCosTheta(wi);
+		return albedo;
 	}
 
-	wi = glm::reflect(wo, nor);
-	*pdf = 1.f;
-	return glm::vec3(1.f);
+	// Compute specular transmission for _FresnelSpecular_
+
+	// Compute ray direction for specular transmission
+	float eta = etaI / etaT;
+	wi = glm::refract(wo, normal, eta);
+	if (glm::all(glm::equal(wi, glm::vec3(0)))) {
+		return glm::vec3(0.0f);
+	}
+	wi = glm::normalize(wi);
+
+	*pdf = 1 - F;
+	return albedo * eta * eta;
 }
