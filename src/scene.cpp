@@ -78,11 +78,11 @@ bool loadObj(const std::string& objPath, std::vector<Mesh>& outMeshes, std::vect
     std::cout << "Loaded " << attrib.vertices.size() / 3 << " vertices." << std::endl;
 
     Mesh mesh;
-    mesh.triangleCount = attrib.vertices.size() / 3;
     mesh.startIndex = outTriangles.size();
-    outMeshes.push_back(mesh);
+    int triangleCount = 0;
     for (auto& shape : shapes) {
         for (size_t i = 0; i < shape.mesh.indices.size(); i += 3) {
+            triangleCount++;
             Triangle triangle;
 
             // Get three consecutive indices that form a triangle
@@ -133,6 +133,8 @@ bool loadObj(const std::string& objPath, std::vector<Mesh>& outMeshes, std::vect
             outTriangles.push_back(triangle);
         }
     }
+    mesh.triangleCount = triangleCount;
+    outMeshes.push_back(mesh);
 
     return true;
 }
@@ -144,7 +146,6 @@ bool parseGeometries(const json& geometryData, std::vector<Triangle>& outTriangl
         const auto& id = p["ID"];
         const auto& material = p["MATERIAL"];
         const auto& path = p["PATH"];
-        Mesh mesh;
         outGeomIdIndexMap[id] = outMeshes.size();
         loadObj(path, outMeshes, outTriangles);
     }

@@ -96,6 +96,7 @@ static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
 static Triangle* dev_triangles = NULL;
 static Instance* dev_inst = NULL;
+static Mesh* dev_meshes = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
@@ -125,6 +126,9 @@ void pathtraceInit(Scene* scene)
     cudaMalloc(&dev_inst, scene->instances.size() * sizeof(Instance));
     cudaMemcpy(dev_inst, scene->instances.data(), scene->instances.size() * sizeof(Instance), cudaMemcpyHostToDevice);
 
+    cudaMalloc(&dev_meshes, scene->meshes.size() * sizeof(Mesh));
+    cudaMemcpy(dev_meshes, scene->meshes.data(), scene->meshes.size() * sizeof(Mesh), cudaMemcpyHostToDevice);
+
     cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
     cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material), cudaMemcpyHostToDevice);
 
@@ -142,6 +146,7 @@ void pathtraceFree()
     cudaFree(dev_paths);
     cudaFree(dev_triangles);
     cudaFree(dev_inst);
+    cudaFree(dev_meshes);
     cudaFree(dev_materials);
     cudaFree(dev_intersections);
     // TODO: clean up any extra device memory you created
@@ -206,6 +211,8 @@ __global__ void computeIntersections(
     int triangle_size,
     Instance* instances,
     int instance_size,
+    Mesh* meshes,
+    int mesh_size,
     ShadeableIntersection* intersections)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -243,7 +250,19 @@ __global__ void computeIntersections(
                 t = triangleIntersectionTest(triangles[inst.triangleId], inst, pathSegment.ray, tmp_intersect, tmp_normal);
             }
             else if (inst.geomType == MESH) {
-                
+                Mesh& mesh = meshes[inst.meshId];
+                for (int j = mesh.startIndex; j < mesh.startIndex + mesh.triangleCount; j++) {
+                    t = triangleIntersectionTest(triangles[j], inst, pathSegment.ray, tmp_intersect, tmp_normal);
+
+                    if (t > 0.0f && t_min > t)
+                    {
+                        t_min = t;
+                        hit_instance_index = i;
+                        intersect_point = tmp_intersect;
+                        normal = tmp_normal;
+                        outside = tmp_outside;
+                    }
+                }
             }
 
             // Compute the minimum t from the intersection tests to determine what
@@ -453,6 +472,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             hst_scene->triangles.size(),
             dev_inst,
             hst_scene->instances.size(),
+            dev_meshes,
+            hst_scene->meshes.size(),
             dev_intersections
         );
         checkCUDAError("trace one bounce");
