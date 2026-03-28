@@ -116,50 +116,37 @@ __host__ __device__ float triangleIntersectionTest(
     Instance instance,
     Ray r,
     glm::vec3& intersectionPoint,
-    glm::vec3& outNormal) {
-    // transform ray into triangle space
+    glm::vec3& outNormal)
+{
     glm::vec3 ro = multiplyMV(instance.inverseTransform, glm::vec4(r.origin, 1.0f));
     glm::vec3 rd = glm::normalize(multiplyMV(instance.inverseTransform, glm::vec4(r.direction, 0.0f)));
 
     glm::vec3 edge1 = triangle.v1 - triangle.v0;
     glm::vec3 edge2 = triangle.v2 - triangle.v0;
 
-    const glm::vec3 normal = glm::cross(edge1, edge2);
-    // back face
-    if (glm::dot(normal, rd) > 0) {
-        return -1;
-    }
+    glm::vec3 pvec = glm::cross(rd, edge2);
+    float det = glm::dot(edge1, pvec);
 
-    glm::vec3 ray_cross_e2 = glm::cross(rd, edge2);
-    float det = glm::dot(edge1, ray_cross_e2);
+    if (fabs(det) < EPSILON) return -1;
 
-    // Ray is parallel to triangle
-    if (abs(det) < EPSILON) {
-        return -1;
-    }
+    float inv_det = 1.0f / det;
 
-    float inv_det = 1.0 / det;
-    glm::vec3 s = ro - triangle.v0;
-    float u = inv_det * glm::dot(s, ray_cross_e2);
-    // Ray passes outside edge2's bounds
-    if (u < -EPSILON || u - 1 > EPSILON) {
-        return -1;
-    }
+    glm::vec3 tvec = ro - triangle.v0;
+    float u = glm::dot(tvec, pvec) * inv_det;
+    if (u < 0.0f || u > 1.0f) return -1;
 
-    glm::vec3 s_cross_e1 = glm::cross(s, edge1);
-    float v = inv_det * glm::dot(rd, s_cross_e1);
-    // Ray passes outside edge1's bounds
-    if (v < -EPSILON || u + v - 1 > EPSILON) {
-        return -1;
-    }
+    glm::vec3 qvec = glm::cross(tvec, edge1);
+    float v = glm::dot(rd, qvec) * inv_det;
+    if (v < 0.0f || u + v > 1.0f) return -1;
 
-    float t = inv_det * glm::dot(edge2, s_cross_e1);
-    if (t > EPSILON) {
-        intersectionPoint = ro + rd * t;
-        outNormal = normal;
-        return t;
-    }
-    else {
-        return -1;
-    }
+    float t = glm::dot(edge2, qvec) * inv_det;
+    if (t < EPSILON) return -1;
+
+    glm::vec3 objspaceIntersection = ro + rd * t;
+    intersectionPoint = multiplyMV(instance.transform, glm::vec4(objspaceIntersection, 1.f));
+
+    glm::vec3 n = glm::normalize(glm::cross(edge1, edge2));
+    outNormal = glm::normalize(multiplyMV(instance.invTranspose, glm::vec4(n, 0.f)));
+
+    return glm::length(r.origin - intersectionPoint);
 }

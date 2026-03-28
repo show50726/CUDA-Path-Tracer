@@ -102,7 +102,7 @@ bool parseGeometries(const json& geometryData, std::vector<Triangle>& outTriangl
 }
 
 bool parseInstances(const json& instanceData, std::unordered_map<std::string, uint32_t>& matNameIdMap,
-    std::vector<Instance>& outInstances) {
+    std::vector<Instance>& outInstances, std::vector<Triangle>& outTriangles) {
     for (const auto& instance : instanceData) {
         const auto& type = instance["TYPE"];
         const auto& matId = instance["MATERIAL"];
@@ -117,6 +117,19 @@ bool parseInstances(const json& instanceData, std::unordered_map<std::string, ui
         else if (type == "mesh") geomType = MESH;
 
         Instance inst;
+        if (geomType == TRIANGLE) {
+            const auto& v0 = instance["V0"];
+            const auto& v1 = instance["V1"];
+            const auto& v2 = instance["V2"];
+            Triangle triangle;
+            triangle.v0 = glm::vec3(v0[0], v0[1], v0[2]);
+            triangle.v1 = glm::vec3(v1[0], v1[1], v1[2]);
+            triangle.v2 = glm::vec3(v2[0], v2[1], v2[2]);
+
+            inst.triangleId = outTriangles.size();
+            outTriangles.push_back(triangle);
+        }
+
         inst.geomType = geomType;
         inst.meshId = geomType == MESH ? instance["MESHID"] : -1;
         inst.materialId = matNameIdMap[matId];
@@ -197,7 +210,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
     parseGeometries(geometryData, geoms, geomIdIndexMap);*/
     
     const auto& instanceData = data["Instances"];
-    parseInstances(instanceData, matNameIdMap, instances);
+    parseInstances(instanceData, matNameIdMap, instances, triangles);
 
     const auto& cameraData = data["Camera"];
     Camera& camera = state.camera;

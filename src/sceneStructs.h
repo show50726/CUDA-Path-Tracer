@@ -46,6 +46,7 @@ struct Triangle {
 
 struct Instance {
     GeomType geomType;
+    uint32_t triangleId;
     uint32_t meshId;   // index into geometry buffer
     uint32_t materialId;   // index into material buffer
 

@@ -240,7 +240,7 @@ __global__ void computeIntersections(
                 t = sphereIntersectionTest(inst, pathSegment.ray, tmp_intersect, tmp_normal, tmp_outside);
             }
             else if (inst.geomType == TRIANGLE) {
-
+                t = triangleIntersectionTest(triangles[inst.triangleId], inst, pathSegment.ray, tmp_intersect, tmp_normal);
             }
             else if (inst.geomType == MESH) {
                 
