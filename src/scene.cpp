@@ -110,7 +110,7 @@ bool parseInstances(const json& instanceData, std::unordered_map<std::string, ui
         const auto& rotation = instance["ROTAT"];
         const auto& scale = instance["SCALE"];
 
-        GeomType geomType;
+        GeomType geomType = CUBE;
         if (type == "cube") geomType = CUBE;
         else if (type == "sphere") geomType = SPHERE;
         else if (type == "triangle") geomType = TRIANGLE;

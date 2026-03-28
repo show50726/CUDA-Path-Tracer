@@ -38,7 +38,6 @@ __host__ __device__ inline glm::vec3 multiplyMV(glm::mat4 m, glm::vec4 v)
     return glm::vec3(m * v);
 }
 
-// CHECKITOUT
 /**
  * Test intersection between a ray and a transformed cube. Untransformed,
  * the cube ranges from -0.5 to 0.5 in each axis and is centered at the origin.
@@ -55,7 +54,6 @@ __host__ __device__ float boxIntersectionTest(
     glm::vec3& normal,
     bool& outside);
 
-// CHECKITOUT
 /**
  * Test intersection between a ray and a transformed sphere. Untransformed,
  * the sphere always has radius 0.5 and is centered at the origin.
@@ -71,3 +69,17 @@ __host__ __device__ float sphereIntersectionTest(
     glm::vec3& intersectionPoint,
     glm::vec3& normal,
     bool& outside);
+
+/**
+ * Test intersection between a ray and a transformed triangle.
+ *
+ * @param intersectionPoint  Output parameter for point of intersection.
+ * @param normal             Output parameter for surface normal.
+ * @return                   Ray parameter `t` value. -1 if no intersection.
+ */
+__host__ __device__ float triangleIntersectionTest(
+    Triangle triangle,
+    Instance instance,
+    Ray r,
+    glm::vec3& intersectionPoint,
+    glm::vec3& outNormal);
