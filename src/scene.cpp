@@ -59,49 +59,99 @@ bool parseMaterials(const json& materialsData, std::vector<Material>& outMateria
     return true;
 }
 
-bool parseGeometries(const json& geometryData, std::vector<Triangle>& outTriangles, std::unordered_map<uint32_t, uint32_t>& outGeomIdIndexMap) {
-    //for (const auto& p : geometryData)
-    //{
-    //    const auto& id = p["ID"];
-    //    const auto& type = p["TYPE"];
-    //    if (type == "cube")
-    //    {
-    //        Cube cube;
-    //        const auto& scale = p["SCALE"];
-    //        cube.scale = glm::vec3(scale[0], scale[1], scale[2]);
-    //        outCubes.push_back(cube);
-    //    }
-    //    else if (type == "sphere")
-    //    {
-    //        Sphere sphere;
-    //        sphere.radius = p["RADIUS"];
-    //        outSpheres.push_back(sphere);
-    //    }
-    //    else if (type == "triangle") {
-    //        Triangle triangle;
-    //        const auto& v0 = p["V0"];
-    //        triangle.v0 = glm::vec3(v0[0], v0[1], v0[2]);
-    //        const auto& v1 = p["V1"];
-    //        triangle.v1 = glm::vec3(v1[0], v1[1], v1[2]);
-    //        const auto& v2 = p["V2"];
-    //        triangle.v2 = glm::vec3(v2[0], v2[1], v2[2]);
+bool loadObj(const std::string& objPath, std::vector<Mesh>& outMeshes, std::vector<Triangle>& outTriangles) {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
 
-    //        // TODO: normal
-    //    }
-    //    else if (type == "obj") {
+    std::string err;
 
-    //    }
-    //    else {
-    //        std::cout << "Unknown geometry type: " << type;
-    //        return false;
-    //    }
+    std::cout << "OBJ loader starts loading OBJ from " << objPath << std::endl;
+    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, objPath.c_str());
 
-    //    outGeomIdIndexMap[id] = outGeometries.size();
-    //    outGeometries.push_back(newGeom);
-    //}
+    if (!err.empty()) std::cout << err << std::endl;
+    if (!ret)  return false;
+    //if (!materials.empty()) loadObjMaterials(mtlPath, &materials);
+
+    std::cout << "Loaded " << materials.size() << " materials." << std::endl;
+    std::cout << "Loaded " << shapes.size() << " shapes." << std::endl;
+    std::cout << "Loaded " << attrib.vertices.size() / 3 << " vertices." << std::endl;
+
+    Mesh mesh;
+    mesh.triangleCount = attrib.vertices.size() / 3;
+    mesh.startIndex = outTriangles.size();
+    outMeshes.push_back(mesh);
+    for (auto& shape : shapes) {
+        for (size_t i = 0; i < shape.mesh.indices.size(); i += 3) {
+            Triangle triangle;
+
+            // Get three consecutive indices that form a triangle
+            tinyobj::index_t idx0 = shape.mesh.indices[i];
+            tinyobj::index_t idx1 = shape.mesh.indices[i + 1];
+            tinyobj::index_t idx2 = shape.mesh.indices[i + 2];
+
+            // Get vertex positions
+            triangle.v0 = glm::vec3(
+                attrib.vertices[3 * idx0.vertex_index + 0],
+                attrib.vertices[3 * idx0.vertex_index + 1],
+                attrib.vertices[3 * idx0.vertex_index + 2]);
+            triangle.v1 = glm::vec3(
+                attrib.vertices[3 * idx1.vertex_index + 0],
+                attrib.vertices[3 * idx1.vertex_index + 1],
+                attrib.vertices[3 * idx1.vertex_index + 2]);
+            triangle.v2 = glm::vec3(
+                attrib.vertices[3 * idx2.vertex_index + 0],
+                attrib.vertices[3 * idx2.vertex_index + 1],
+                attrib.vertices[3 * idx2.vertex_index + 2]);
+
+            // Get normals if available
+            //if (idx0.normal_index >= 0 && idx1.normal_index >= 0 && idx2.normal_index >= 0) {
+            //    n0 = glm::vec3(
+            //        attrib.normals[3 * idx0.normal_index + 0],
+            //        attrib.normals[3 * idx0.normal_index + 1],
+            //        attrib.normals[3 * idx0.normal_index + 2]);
+            //    n1 = glm::vec3(
+            //        attrib.normals[3 * idx1.normal_index + 0],
+            //        attrib.normals[3 * idx1.normal_index + 1],
+            //        attrib.normals[3 * idx1.normal_index + 2]);
+            //    n2 = glm::vec3(
+            //        attrib.normals[3 * idx2.normal_index + 0],
+            //        attrib.normals[3 * idx2.normal_index + 1],
+            //        attrib.normals[3 * idx2.normal_index + 2]);
+            //}
+            //else {
+            //    // Compute normals from the geometry of the triangle
+            //    glm::vec3 edge1 = v1 - v0;
+            //    glm::vec3 edge2 = v2 - v0;
+            //    glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
+
+            //    n0 = normal;
+            //    n1 = normal;
+            //    n2 = normal;
+            //}
+
+            outTriangles.push_back(triangle);
+        }
+    }
+
+    return true;
 }
 
-bool parseInstances(const json& instanceData, std::unordered_map<std::string, uint32_t>& matNameIdMap,
+bool parseGeometries(const json& geometryData, std::vector<Triangle>& outTriangles, std::vector<Mesh>& outMeshes,
+    std::unordered_map<uint32_t, uint32_t>& outGeomIdIndexMap) {
+    for (const auto& p : geometryData)
+    {
+        const auto& id = p["ID"];
+        const auto& material = p["MATERIAL"];
+        const auto& path = p["PATH"];
+        Mesh mesh;
+        outGeomIdIndexMap[id] = outMeshes.size();
+        loadObj(path, outMeshes, outTriangles);
+    }
+    return true;
+}
+
+bool parseInstances(const json& instanceData, std::unordered_map<std::string, uint32_t>& matNameIdMap, std::unordered_map<uint32_t, uint32_t>& geomIdIndexMap,
     std::vector<Instance>& outInstances, std::vector<Triangle>& outTriangles) {
     for (const auto& instance : instanceData) {
         const auto& type = instance["TYPE"];
@@ -131,7 +181,7 @@ bool parseInstances(const json& instanceData, std::unordered_map<std::string, ui
         }
 
         inst.geomType = geomType;
-        inst.meshId = geomType == MESH ? instance["MESHID"] : -1;
+        inst.meshId = geomType == MESH ? geomIdIndexMap[instance["MESHID"]] : -1;
         inst.materialId = matNameIdMap[matId];
         inst.translation = glm::vec3(translation[0], translation[1], translation[2]);
         inst.rotation = glm::vec3(rotation[0], rotation[1], rotation[2]);
@@ -205,12 +255,12 @@ void Scene::loadFromJSON(const std::string& jsonName)
     std::unordered_map<std::string, uint32_t> matNameIdMap;
     parseMaterials(materialsData, materials, matNameIdMap);
 
-    /*const auto& geometryData = data["Geometries"];
+    const auto& geometryData = data["Geometries"];
     std::unordered_map<uint32_t, uint32_t> geomIdIndexMap;
-    parseGeometries(geometryData, geoms, geomIdIndexMap);*/
+    parseGeometries(geometryData, triangles, meshes, geomIdIndexMap);
     
     const auto& instanceData = data["Instances"];
-    parseInstances(instanceData, matNameIdMap, instances, triangles);
+    parseInstances(instanceData, matNameIdMap, geomIdIndexMap, instances, triangles);
 
     const auto& cameraData = data["Camera"];
     Camera& camera = state.camera;
@@ -222,96 +272,3 @@ void Scene::loadFromJSON(const std::string& jsonName)
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
 }
 
-bool Scene::loadObj(const std::string& objPath) {
-    //tinyobj::attrib_t attrib;
-    //std::vector<tinyobj::shape_t> shapes;
-    //std::vector<tinyobj::material_t> materials;
-    //std::string mtlPath = objPath.substr(0, objPath.find_last_of('/') + 1);
-
-    //std::string err;
-
-    //std::cout << "OBJ loader starts loading OBJ from " << objPath << std::endl;
-    //bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, objPath.c_str(), mtlPath.c_str());
-
-    //if (!err.empty()) std::cout << err << std::endl;
-    //if (!ret)  return false;
-    //if (!materials.empty()) loadObjMaterials(mtlPath, &materials);
-
-    //std::cout << "Loaded " << materials.size() << " materials." << std::endl;
-    //std::cout << "Loaded " << shapes.size() << " shapes." << std::endl;
-    //std::cout << "Loaded " << attrib.vertices.size() / 3 << " vertices." << std::endl;
-
-    //for (auto& shape : shapes) {
-    //    for (size_t i = 0; i < shape.mesh.indices.size(); i += 3) {
-    //        Geom newGeom;
-    //        newGeom.type = TRIANGLE;
-    //        newGeom.materialid = origSize_MatNameToID + shape.mesh.material_ids[i / 3];
-
-    //        glm::vec3 v0, v1, v2, n0, n1, n2;
-
-    //        // Get three consecutive indices that form a triangle
-    //        tinyobj::index_t idx0 = shape.mesh.indices[i];
-    //        tinyobj::index_t idx1 = shape.mesh.indices[i + 1];
-    //        tinyobj::index_t idx2 = shape.mesh.indices[i + 2];
-
-    //        // Get vertex positions
-    //        v0 = glm::vec3(
-    //            attrib.vertices[3 * idx0.vertex_index + 0],
-    //            attrib.vertices[3 * idx0.vertex_index + 1],
-    //            attrib.vertices[3 * idx0.vertex_index + 2]);
-    //        v1 = glm::vec3(
-    //            attrib.vertices[3 * idx1.vertex_index + 0],
-    //            attrib.vertices[3 * idx1.vertex_index + 1],
-    //            attrib.vertices[3 * idx1.vertex_index + 2]);
-    //        v2 = glm::vec3(
-    //            attrib.vertices[3 * idx2.vertex_index + 0],
-    //            attrib.vertices[3 * idx2.vertex_index + 1],
-    //            attrib.vertices[3 * idx2.vertex_index + 2]);
-
-    //        // Get normals if available
-    //        if (idx0.normal_index >= 0 && idx1.normal_index >= 0 && idx2.normal_index >= 0) {
-    //            n0 = glm::vec3(
-    //                attrib.normals[3 * idx0.normal_index + 0],
-    //                attrib.normals[3 * idx0.normal_index + 1],
-    //                attrib.normals[3 * idx0.normal_index + 2]);
-    //            n1 = glm::vec3(
-    //                attrib.normals[3 * idx1.normal_index + 0],
-    //                attrib.normals[3 * idx1.normal_index + 1],
-    //                attrib.normals[3 * idx1.normal_index + 2]);
-    //            n2 = glm::vec3(
-    //                attrib.normals[3 * idx2.normal_index + 0],
-    //                attrib.normals[3 * idx2.normal_index + 1],
-    //                attrib.normals[3 * idx2.normal_index + 2]);
-    //        }
-    //        else {
-    //            // Compute normals from the geometry of the triangle
-    //            glm::vec3 edge1 = v1 - v0;
-    //            glm::vec3 edge2 = v2 - v0;
-    //            glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
-
-    //            n0 = normal;
-    //            n1 = normal;
-    //            n2 = normal;
-    //        }
-
-    //        // Store the vertices and normals in the Geom struct
-    //        newGeom.v0 = v0;
-    //        newGeom.v1 = v1;
-    //        newGeom.v2 = v2;
-    //        newGeom.n0 = n0;
-    //        newGeom.n1 = n1;
-    //        newGeom.n2 = n2;
-
-    //        newGeom.translation = glm::vec3(0.0f);
-    //        newGeom.rotation = glm::vec3(0.0f);
-    //        newGeom.scale = glm::vec3(1.0f);
-    //        newGeom.transform = utilityCore::buildTransformationMatrix(
-    //            newGeom.translation, newGeom.rotation, newGeom.scale);
-    //        newGeom.inverseTransform = glm::inverse(newGeom.transform);
-    //        newGeom.invTranspose = glm::inverseTranspose(newGeom.transform);
-
-    //        geoms.push_back(newGeom);
-    //    }
-    //}
-    return true;
-}

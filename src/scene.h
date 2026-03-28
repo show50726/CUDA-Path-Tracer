@@ -30,6 +30,6 @@ public:
 private:
     ifstream fp_in;
     void loadFromJSON(const std::string& jsonName);
-    bool loadObj(const std::string& objPath);
+    bool loadObj(const std::string& objPath, std::vector<Mesh>& outMeshes, std::vector<Triangle>& outTriangles);
     bool loadObjMaterials(const std::string& objPath, std::vector<tinyobj::material_t>* materials);
 };
