@@ -94,7 +94,8 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution, int iter, glm
 static Scene* hst_scene = NULL;
 static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
-static Geom* dev_geoms = NULL;
+static Triangle* dev_triangles = NULL;
+static Instance* dev_inst = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
@@ -118,8 +119,11 @@ void pathtraceInit(Scene* scene)
 
     cudaMalloc(&dev_paths, pixelcount * sizeof(PathSegment));
 
-    cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(Geom));
-    cudaMemcpy(dev_geoms, scene->geoms.data(), scene->geoms.size() * sizeof(Geom), cudaMemcpyHostToDevice);
+    cudaMalloc(&dev_triangles, scene->triangles.size() * sizeof(Triangle));
+    cudaMemcpy(dev_triangles, scene->triangles.data(), scene->triangles.size() * sizeof(Triangle), cudaMemcpyHostToDevice);
+
+    cudaMalloc(&dev_inst, scene->instances.size() * sizeof(Instance));
+    cudaMemcpy(dev_inst, scene->instances.data(), scene->instances.size() * sizeof(Instance), cudaMemcpyHostToDevice);
 
     cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
     cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material), cudaMemcpyHostToDevice);
@@ -136,7 +140,8 @@ void pathtraceFree()
 {
     cudaFree(dev_image);  // no-op if dev_image is null
     cudaFree(dev_paths);
-    cudaFree(dev_geoms);
+    cudaFree(dev_triangles);
+    cudaFree(dev_inst);
     cudaFree(dev_materials);
     cudaFree(dev_intersections);
     // TODO: clean up any extra device memory you created
@@ -197,8 +202,10 @@ __global__ void computeIntersections(
     int depth,
     int num_paths,
     PathSegment* pathSegments,
-    Geom* geoms,
-    int geoms_size,
+    Triangle* triangles,
+    int triangle_size,
+    Instance* instances,
+    int instance_size,
     ShadeableIntersection* intersections)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -211,7 +218,7 @@ __global__ void computeIntersections(
         glm::vec3 intersect_point;
         glm::vec3 normal;
         float t_min = FLT_MAX;
-        int hit_geom_index = -1;
+        int hit_instance_index = -1;
         bool outside = true;
 
         glm::vec3 tmp_intersect;
@@ -220,33 +227,38 @@ __global__ void computeIntersections(
 
         // naive parse through global geoms
 
-        for (int i = 0; i < geoms_size; i++)
+        for (int i = 0; i < instance_size; i++)
         {
-            Geom& geom = geoms[i];
+            Instance& inst = instances[i];
 
-            if (geom.type == CUBE)
+            if (inst.geomType == CUBE)
             {
-                t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, tmp_outside);
+                t = boxIntersectionTest(inst, pathSegment.ray, tmp_intersect, tmp_normal, tmp_outside);
             }
-            else if (geom.type == SPHERE)
+            else if (inst.geomType == SPHERE)
             {
-                t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, tmp_outside);
+                t = sphereIntersectionTest(inst, pathSegment.ray, tmp_intersect, tmp_normal, tmp_outside);
             }
-            // TODO: add more intersection tests here... triangle? metaball? CSG?
+            else if (inst.geomType == TRIANGLE) {
+
+            }
+            else if (inst.geomType == MESH) {
+                
+            }
 
             // Compute the minimum t from the intersection tests to determine what
             // scene geometry object was hit first.
             if (t > 0.0f && t_min > t)
             {
                 t_min = t;
-                hit_geom_index = i;
+                hit_instance_index = i;
                 intersect_point = tmp_intersect;
                 normal = tmp_normal;
                 outside = tmp_outside;
             }
         }
 
-        if (hit_geom_index == -1)
+        if (hit_instance_index == -1)
         {
             intersections[path_index].t = -1.0f;
         }
@@ -254,7 +266,7 @@ __global__ void computeIntersections(
         {
             // The ray hits something
             intersections[path_index].t = t_min;
-            intersections[path_index].materialId = geoms[hit_geom_index].materialid;
+            intersections[path_index].materialId = instances[hit_instance_index].materialId;
             intersections[path_index].surfaceNormal = normal;
             intersections[path_index].outside = outside;
         }
@@ -437,8 +449,10 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             depth,
             num_paths,
             dev_paths,
-            dev_geoms,
-            hst_scene->geoms.size(),
+            dev_triangles,
+            hst_scene->triangles.size(),
+            dev_inst,
+            hst_scene->instances.size(),
             dev_intersections
         );
         checkCUDAError("trace one bounce");

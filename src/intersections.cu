@@ -1,15 +1,16 @@
 #include "intersections.h"
 
+// TODO: consider the scale of the box
 __host__ __device__ float boxIntersectionTest(
-    Geom box,
+    Instance instance,
     Ray r,
     glm::vec3 &intersectionPoint,
     glm::vec3 &normal,
     bool &outside)
 {
     Ray q;
-    q.origin    =                multiplyMV(box.inverseTransform, glm::vec4(r.origin   , 1.0f));
-    q.direction = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
+    q.origin    =                multiplyMV(instance.inverseTransform, glm::vec4(r.origin   , 1.0f));
+    q.direction = glm::normalize(multiplyMV(instance.inverseTransform, glm::vec4(r.direction, 0.0f)));
 
     float tmin = -1e38f;
     float tmax = 1e38f;
@@ -48,8 +49,8 @@ __host__ __device__ float boxIntersectionTest(
             tmin_n = tmax_n;
             outside = false;
         }
-        intersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(q, tmin), 1.0f));
-        normal = glm::normalize(multiplyMV(box.invTranspose, glm::vec4(tmin_n, 0.0f)));
+        intersectionPoint = multiplyMV(instance.transform, glm::vec4(getPointOnRay(q, tmin), 1.0f));
+        normal = glm::normalize(multiplyMV(instance.invTranspose, glm::vec4(tmin_n, 0.0f)));
         return glm::length(r.origin - intersectionPoint);
     }
 
@@ -57,16 +58,16 @@ __host__ __device__ float boxIntersectionTest(
 }
 
 __host__ __device__ float sphereIntersectionTest(
-    Geom sphere,
+    Instance instance,
     Ray r,
     glm::vec3 &intersectionPoint,
     glm::vec3 &normal,
     bool &outside)
 {
-    float radius = .5;
+    float radius = 0.5f;
 
-    glm::vec3 ro = multiplyMV(sphere.inverseTransform, glm::vec4(r.origin, 1.0f));
-    glm::vec3 rd = glm::normalize(multiplyMV(sphere.inverseTransform, glm::vec4(r.direction, 0.0f)));
+    glm::vec3 ro = multiplyMV(instance.inverseTransform, glm::vec4(r.origin, 1.0f));
+    glm::vec3 rd = glm::normalize(multiplyMV(instance.inverseTransform, glm::vec4(r.direction, 0.0f)));
 
     Ray rt;
     rt.origin = ro;
@@ -102,9 +103,9 @@ __host__ __device__ float sphereIntersectionTest(
 
     glm::vec3 objspaceIntersection = getPointOnRay(rt, t);
 
-    intersectionPoint = multiplyMV(sphere.transform, glm::vec4(objspaceIntersection, 1.f));
+    intersectionPoint = multiplyMV(instance.transform, glm::vec4(objspaceIntersection, 1.f));
     
-    normal = glm::normalize(multiplyMV(sphere.invTranspose, glm::vec4(objspaceIntersection, 0.f)));
+    normal = glm::normalize(multiplyMV(instance.invTranspose, glm::vec4(objspaceIntersection, 0.f)));
     
     return glm::length(r.origin - intersectionPoint);
 }

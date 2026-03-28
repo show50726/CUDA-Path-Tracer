@@ -10,7 +10,9 @@
 enum GeomType
 {
     SPHERE,
-    CUBE
+    CUBE,
+    TRIANGLE,
+    MESH
 };
 
 struct Ray
@@ -19,13 +21,38 @@ struct Ray
     glm::vec3 direction;
 };
 
-struct Geom
-{
-    enum GeomType type;
-    int materialid;
+struct Mesh {
+    uint32_t startIndex;
+    uint32_t triangleCount;
+};
+
+struct Sphere {
+    float radius{1.0f};
+};
+
+struct Cube {
+    glm::vec3 scale{ 1, 1, 1 };
+};
+
+struct Triangle {
+    glm::vec3 v0;
+    glm::vec3 v1;
+    glm::vec3 v2;
+
+    glm::vec3 n0;
+    glm::vec3 n1;
+    glm::vec3 n2;
+};
+
+struct Instance {
+    GeomType geomType;
+    uint32_t meshId;   // index into geometry buffer
+    uint32_t materialId;   // index into material buffer
+
     glm::vec3 translation;
     glm::vec3 rotation;
     glm::vec3 scale;
+
     glm::mat4 transform;
     glm::mat4 inverseTransform;
     glm::mat4 invTranspose;
