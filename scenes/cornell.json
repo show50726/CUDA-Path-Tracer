@@ -27,6 +27,11 @@
             "TYPE":"Diffuse",
             "RGB":[0.0, 0.0, 1.0]
         },
+        "dragon":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.0, 0.5, 1.0]
+        },
         "specular_white":
         {
             "TYPE":"Specular",
@@ -50,7 +55,12 @@
         {
             "ID":0,
             "MATERIAL":"diffuse_white",
-            "PATH":"I:\\Document\\CUDA-Path-Tracer\\build\\bin\\Debug\\cube.obj"
+            "PATH":"I:\\Document\\CUDA-Path-Tracer\\build\\bin\\Debug\\teapot.obj"
+        },
+        {
+            "ID":1,
+            "MATERIAL":"diffuse_white",
+            "PATH":"I:\\Document\\CUDA-Path-Tracer\\build\\bin\\Debug\\bunny.obj"
         }
     ],
     "Instances":
@@ -103,24 +113,6 @@
             "TRANS":[-1.0,4.0,-1.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
-        },
-        {
-            "TYPE":"triangle",
-            "MATERIAL":"diffuse_blue",
-            "V0":[1.0,3.0,3.0],
-            "V1":[-1.0,3.0,3.0],
-            "V2":[0.0,1.0,3.0],
-            "TRANS":[0.0,0.0,0.0],
-            "ROTAT":[0.0,90.0,0.0],
-            "SCALE":[1.0,3.0,1.0]
-        },
-        {
-            "TYPE":"MESH",
-            "MATERIAL":"diffuse_blue",
-            "MESHID":0,
-            "TRANS":[0.0,0.0,0.0],
-            "ROTAT":[0.0,90.0,0.0],
-            "SCALE":[1.0,3.0,1.0]
         }
     ]
 }

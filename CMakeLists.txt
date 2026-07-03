@@ -64,6 +64,7 @@ set(headers
     src/materials.h
     src/math.h
     src/tiny_obj_loader.h
+    src/bvh.h
 )
 
 set(sources
@@ -79,6 +80,7 @@ set(sources
     src/utilities.cpp
     src/materials.cu
     src/tiny_obj_loader.cpp
+    src/bvh.cpp
 )
 
 set(imgui_headers
