@@ -5,9 +5,11 @@
 #include <cmath>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/random.h>
 #include <thrust/remove.h>
 #include <thrust/sort.h>
+#include <thrust/tuple.h>
 
 #include "device_launch_parameters.h"
 #include "sceneStructs.h"

@@ -12,12 +12,10 @@
 #include "materials.h"
 #include "tiny_obj_loader.h"
 
-using namespace std;
-
 class Scene
 {
 public:
-    Scene(string filename);
+    Scene(std::string filename);
     ~Scene();
 
     std::vector<Mesh> meshes;
@@ -28,7 +26,7 @@ public:
     RenderState state;
 
 private:
-    ifstream fp_in;
+    std::ifstream fp_in;
     void loadFromJSON(const std::string& jsonName);
     bool loadObj(const std::string& objPath, std::vector<Mesh>& outMeshes, std::vector<Triangle>& outTriangles);
     bool loadObjMaterials(const std::string& objPath, std::vector<tinyobj::material_t>* materials);

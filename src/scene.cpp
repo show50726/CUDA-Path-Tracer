@@ -230,10 +230,10 @@ bool parseCamera(const json& cameraData, Camera& outCamera, RenderState& outRend
 
 }
 
-Scene::Scene(string filename)
+Scene::Scene(std::string filename)
 {
-    cout << "Reading scene from " << filename << " ..." << endl;
-    cout << " " << endl;
+    std::cout << "Reading scene from " << filename << " ..." << std::endl;
+    std::cout << " " << std::endl;
     auto ext = filename.substr(filename.find_last_of('.'));
     if (ext == ".json")
     {
@@ -242,7 +242,7 @@ Scene::Scene(string filename)
     }
     else
     {
-        cout << "Couldn't read from " << filename << endl;
+        std::cout << "Couldn't read from " << filename << std::endl;
         exit(-1);
     }
 }
