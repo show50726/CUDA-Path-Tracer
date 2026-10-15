@@ -305,6 +305,7 @@ __global__ void computeIntersections(
 
 __global__ void shadeBSDFMaterial(
     int iter,
+    int depth,
     int num_paths,
     ShadeableIntersection* shadeableIntersections,
     PathSegment* pathSegments,
@@ -318,7 +319,7 @@ __global__ void shadeBSDFMaterial(
         if (intersection.t > 0.0f) // if the intersection exists...
         {
             // Set up the RNG
-            thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
+            thrust::default_random_engine rng = makeSeededRandomEngine(iter, segment.pixelIndex, depth);
             thrust::uniform_real_distribution<float> u01(0, 1);
 
             Material material = materials[intersection.materialId];
@@ -517,6 +518,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
         shadeBSDFMaterial<<<numblocksPathSegmentTracing, blockSize1d>>>(
             iter,
+            depth,
             num_paths,
             dev_intersections,
             dev_paths,

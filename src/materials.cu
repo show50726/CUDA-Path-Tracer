@@ -61,16 +61,17 @@ __device__ glm::vec3 Material::fresnelSamplef(const glm::vec3& nor, bool outside
 {
 	constexpr float ior_air = 1.0f;
 
-	float cosTheta = glm::dot(-wo, nor);
-
 	// Figure out which $\eta$ is incident and which is transmitted
 	float etaI = outside ? ior_air : ior;
 	float etaT = outside ? ior : ior_air;
 
 	glm::vec3 normal = outside ? nor : -nor;
+	// etaI/etaT are already oriented to the incident medium. Use the
+	// incident-facing normal so frDielectric does not swap them a second time.
+	float cosTheta = glm::clamp(glm::dot(-wo, normal), 0.0f, 1.0f);
 
 	float F = math::frDielectric(cosTheta, etaI, etaT);
-	if (rng[0] < F) {
+	if (F >= 1.0f || rng[0] < F) {
 		// Compute specular reflection for _FresnelSpecular_
 
 		// Compute perfect specular reflection direction
