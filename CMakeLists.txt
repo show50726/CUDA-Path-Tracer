@@ -9,10 +9,15 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Enable C++11 for host code
+# Preserve the original standard for older CUDA toolkits.
 set(CMAKE_CXX_STANDARD 11)
+if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "13.0")
+    # CUDA 13's bundled Thrust/CCCL requires C++17.
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
 if(NOT DEFINED CMAKE_CUDA_STANDARD)
-    set(CMAKE_CUDA_STANDARD 11)
+    set(CMAKE_CUDA_STANDARD ${CMAKE_CXX_STANDARD})
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 endif()
 
@@ -119,6 +124,16 @@ source_group("ImGui\\Sources" FILES ${imgui_sources})
 #add_subdirectory(stream_compaction)  # TODO: uncomment if using your stream compaction
 
 add_executable(${CMAKE_PROJECT_NAME} ${sources} ${headers} ${imgui_sources} ${imgui_headers})
+if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "13.0")
+    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    if(MSVC)
+        # CCCL requires the conforming MSVC preprocessor, including through nvcc.
+        target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
+            "$<$<COMPILE_LANGUAGE:CXX>:/Zc:preprocessor>"
+            "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/Zc:preprocessor>"
+        )
+    endif()
+endif()
 set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 if(CMAKE_VERSION VERSION_LESS "3.23.0")
     set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES CUDA_ARCHITECTURES OFF)
