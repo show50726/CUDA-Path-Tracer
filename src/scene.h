@@ -18,6 +18,7 @@ public:
     Scene(std::string filename);
     ~Scene();
 
+    std::vector<Geometry> geometries;
     std::vector<Mesh> meshes;
     std::vector<Triangle> triangles;
     std::vector<uint32_t> triangleToMaterialId;

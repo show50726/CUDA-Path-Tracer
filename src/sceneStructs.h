@@ -44,10 +44,14 @@ struct Triangle {
     glm::vec3 n2;
 };
 
+struct Geometry {
+    uint32_t id;       // ID from the scene file, independent of array position
+    GeomType type;
+    uint32_t dataIndex; // triangle or mesh index; unused for sphere and cube
+};
+
 struct Instance {
-    GeomType geomType;
-    uint32_t triangleId;
-    uint32_t meshId;   // index into geometry buffer
+    uint32_t geometryIndex; // index into the resident geometry buffer
     uint32_t materialId;   // index into material buffer
 
     glm::vec3 translation;

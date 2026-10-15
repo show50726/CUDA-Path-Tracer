@@ -139,29 +139,25 @@ bool loadObj(const std::string& objPath, std::vector<Mesh>& outMeshes, std::vect
     return true;
 }
 
-struct GeometryDefinition {
-    GeomType type;
-    uint32_t index = 0;
-};
-
-using GeometryMap = std::unordered_map<uint32_t, GeometryDefinition>;
+using GeometryMap = std::unordered_map<uint32_t, uint32_t>;
 
 bool parseGeometries(const json& geometryData, std::vector<Triangle>& outTriangles, std::vector<Mesh>& outMeshes,
-    GeometryMap& outGeometries) {
+    std::vector<Geometry>& outGeometries, GeometryMap& geometryIndices) {
     if (!geometryData.is_array())
         throw std::runtime_error("Geometries must be an array.");
     for (const auto& p : geometryData)
     {
         const uint32_t id = p.at("ID").get<uint32_t>();
-        if (outGeometries.count(id))
+        if (geometryIndices.count(id))
             throw std::runtime_error("Duplicate geometry ID: " + std::to_string(id));
         const auto type = p.at("TYPE").get<std::string>();
-        GeometryDefinition geometry;
+        Geometry geometry{};
+        geometry.id = id;
         if (type == "cube") geometry.type = CUBE;
         else if (type == "sphere") geometry.type = SPHERE;
         else if (type == "triangle") {
             geometry.type = TRIANGLE;
-            geometry.index = static_cast<uint32_t>(outTriangles.size());
+            geometry.dataIndex = static_cast<uint32_t>(outTriangles.size());
             Triangle triangle{};
             const auto& v0 = p.at("V0");
             const auto& v1 = p.at("V1");
@@ -174,23 +170,24 @@ bool parseGeometries(const json& geometryData, std::vector<Triangle>& outTriangl
         }
         else if (type == "mesh") {
             geometry.type = MESH;
-            geometry.index = static_cast<uint32_t>(outMeshes.size());
+            geometry.dataIndex = static_cast<uint32_t>(outMeshes.size());
             const auto path = p.at("PATH").get<std::string>();
             if (!loadObj(path, outMeshes, outTriangles))
                 throw std::runtime_error("Cannot load geometry mesh: " + path);
         }
         else throw std::runtime_error("Unknown geometry type: " + type);
-        outGeometries.emplace(id, geometry);
+        geometryIndices.emplace(id, static_cast<uint32_t>(outGeometries.size()));
+        outGeometries.push_back(geometry);
     }
     return true;
 }
 
-bool parseInstances(const json& instanceData, const std::unordered_map<std::string, uint32_t>& matNameIdMap, const GeometryMap& geometries,
+bool parseInstances(const json& instanceData, const std::unordered_map<std::string, uint32_t>& matNameIdMap, const GeometryMap& geometryIndices,
     std::vector<Instance>& outInstances) {
     for (const auto& instance : instanceData) {
         const auto geometryId = instance.at("GEOMETRY").get<uint32_t>();
-        const auto geometryIt = geometries.find(geometryId);
-        if (geometryIt == geometries.end())
+        const auto geometryIt = geometryIndices.find(geometryId);
+        if (geometryIt == geometryIndices.end())
             throw std::runtime_error("Instance references unknown geometry ID: " + std::to_string(geometryId));
         const auto matId = instance.at("MATERIAL").get<std::string>();
         const auto materialIt = matNameIdMap.find(matId);
@@ -200,11 +197,8 @@ bool parseInstances(const json& instanceData, const std::unordered_map<std::stri
         const auto& rotation = instance["ROTAT"];
         const auto& scale = instance["SCALE"];
 
-        const auto& geometry = geometryIt->second;
         Instance inst{};
-        inst.geomType = geometry.type;
-        inst.triangleId = geometry.type == TRIANGLE ? geometry.index : uint32_t(-1);
-        inst.meshId = geometry.type == MESH ? geometry.index : uint32_t(-1);
+        inst.geometryIndex = geometryIt->second;
         inst.materialId = materialIt->second;
         inst.translation = glm::vec3(translation[0], translation[1], translation[2]);
         inst.rotation = glm::vec3(rotation[0], rotation[1], rotation[2]);
@@ -281,15 +275,15 @@ void Scene::loadFromJSON(const std::string& jsonName)
     std::unordered_map<std::string, uint32_t> matNameIdMap;
     parseMaterials(materialsData, materials, matNameIdMap);
 
-    GeometryMap geometries;
-    parseGeometries(data.at("Geometries"), triangles, meshes, geometries);
+    GeometryMap geometryIndices;
+    parseGeometries(data.at("Geometries"), triangles, meshes, geometries, geometryIndices);
     
     const auto& instanceData = data.at("Instances");
     if (!instanceData.is_array() || instanceData.empty())
     {
         throw std::runtime_error("Scene must contain a non-empty Instances array.");
     }
-    parseInstances(instanceData, matNameIdMap, geometries, instances);
+    parseInstances(instanceData, matNameIdMap, geometryIndices, instances);
 
     const auto& cameraData = data["Camera"];
     Camera& camera = state.camera;

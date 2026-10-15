@@ -99,6 +99,7 @@ static glm::vec3* dev_image = NULL;
 static Triangle* dev_triangles = NULL;
 static Instance* dev_inst = NULL;
 static Mesh* dev_meshes = NULL;
+static Geometry* dev_geometries = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
@@ -131,6 +132,9 @@ void pathtraceInit(Scene* scene)
     cudaMalloc(&dev_meshes, scene->meshes.size() * sizeof(Mesh));
     cudaMemcpy(dev_meshes, scene->meshes.data(), scene->meshes.size() * sizeof(Mesh), cudaMemcpyHostToDevice);
 
+    cudaMalloc(&dev_geometries, scene->geometries.size() * sizeof(Geometry));
+    cudaMemcpy(dev_geometries, scene->geometries.data(), scene->geometries.size() * sizeof(Geometry), cudaMemcpyHostToDevice);
+
     cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
     cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material), cudaMemcpyHostToDevice);
 
@@ -149,6 +153,7 @@ void pathtraceFree()
     cudaFree(dev_triangles);
     cudaFree(dev_inst);
     cudaFree(dev_meshes);
+    cudaFree(dev_geometries);
     cudaFree(dev_materials);
     cudaFree(dev_intersections);
     // TODO: clean up any extra device memory you created
@@ -215,6 +220,7 @@ __global__ void computeIntersections(
     int instance_size,
     Mesh* meshes,
     int mesh_size,
+    const Geometry* geometries,
     ShadeableIntersection* intersections)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -239,20 +245,23 @@ __global__ void computeIntersections(
         for (int i = 0; i < instance_size; i++)
         {
             Instance& inst = instances[i];
+            const Geometry& geometry = geometries[inst.geometryIndex];
+            t = -1.0f;
+            tmp_outside = true;
 
-            if (inst.geomType == CUBE)
+            if (geometry.type == CUBE)
             {
                 t = boxIntersectionTest(inst, pathSegment.ray, tmp_intersect, tmp_normal, tmp_outside);
             }
-            else if (inst.geomType == SPHERE)
+            else if (geometry.type == SPHERE)
             {
                 t = sphereIntersectionTest(inst, pathSegment.ray, tmp_intersect, tmp_normal, tmp_outside);
             }
-            else if (inst.geomType == TRIANGLE) {
-                t = triangleIntersectionTest(triangles[inst.triangleId], inst, pathSegment.ray, tmp_intersect, tmp_normal);
+            else if (geometry.type == TRIANGLE) {
+                t = triangleIntersectionTest(triangles[geometry.dataIndex], inst, pathSegment.ray, tmp_intersect, tmp_normal);
             }
-            else if (inst.geomType == MESH) {
-                Mesh& mesh = meshes[inst.meshId];
+            else if (geometry.type == MESH) {
+                Mesh& mesh = meshes[geometry.dataIndex];
                 for (int j = mesh.startIndex; j < mesh.startIndex + mesh.triangleCount; j++) {
                     t = triangleIntersectionTest(triangles[j], inst, pathSegment.ray, tmp_intersect, tmp_normal);
 
@@ -476,6 +485,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             hst_scene->instances.size(),
             dev_meshes,
             hst_scene->meshes.size(),
+            dev_geometries,
             dev_intersections
         );
         checkCUDAError("trace one bounce");
