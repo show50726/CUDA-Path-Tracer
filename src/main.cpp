@@ -1,6 +1,7 @@
 #include "main.h"
 #include "preview.h"
 #include <cstring>
+#include <exception>
 
 static std::string startTimeString;
 
@@ -44,7 +45,15 @@ int main(int argc, char** argv)
     const char* sceneFile = argv[1];
 
     // Load scene file
-    scene = new Scene(sceneFile);
+    try
+    {
+        scene = new Scene(sceneFile);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Failed to load scene '" << sceneFile << "': " << e.what() << std::endl;
+        return 1;
+    }
 
     //Create Instance for ImGUIData
     guiData = new GuiDataContainer();

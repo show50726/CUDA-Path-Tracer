@@ -250,6 +250,10 @@ Scene::Scene(std::string filename)
 void Scene::loadFromJSON(const std::string& jsonName)
 {
     std::ifstream f(jsonName);
+    if (!f.is_open())
+    {
+        throw std::runtime_error("Cannot open scene file '" + jsonName + "'. Check that the file exists and the path is relative to the working directory.");
+    }
     json data = json::parse(f);
 
     const auto& materialsData = data["Materials"];
